@@ -1,23 +1,67 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { useWallet } from '../hooks/useWallet';
+import { createProposal } from '../utils/api';
 
 export default function CreateProposalPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const wallet = useWallet();
   const [formData, setFormData] = useState({
     recipient: '',
     amount: '',
     reason: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
-    // TODO: Submit proposal creation
-    console.log('Creating proposal:', formData);
+  const handleSubmit = async () => {
+    if (!wallet.address) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    if (!id) {
+      setError('Vault ID is missing');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Validate form
+      if (!formData.recipient) {
+        throw new Error('Recipient address is required');
+      }
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+      if (!formData.reason) {
+        throw new Error('Reason is required');
+      }
+
+      // Create proposal via API
+      const proposalData = {
+        recipient: formData.recipient,
+        amount: parseFloat(formData.amount),
+        reason: formData.reason,
+      };
+
+      await createProposal(id, proposalData, wallet.address);
+
+      // Navigate back to vault detail page
+      navigate(`/vaults/${id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create proposal');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -30,6 +74,12 @@ export default function CreateProposalPage() {
         </div>
 
         <h1 className="text-4xl font-bold mb-8 section-bold">Create Proposal</h1>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        )}
 
         <Card padding="lg">
           <div className="space-y-6">
@@ -69,9 +119,11 @@ export default function CreateProposalPage() {
 
             <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
               <Link to={`/vaults/${id}`}>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
               </Link>
-              <Button onClick={handleSubmit}>Create Proposal</Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? 'Creating Proposal...' : 'Create Proposal'}
+              </Button>
             </div>
           </div>
         </Card>
