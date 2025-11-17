@@ -1,48 +1,98 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
-
-// Mock data
-const mockProposals = [
-  {
-    id: '1',
-    vaultName: 'DAO Treasury',
-    recipient: '0xabc...',
-    amount: 2,
-    reason: 'Monthly contributor payment',
-    status: 'pending',
-    approvals: 1,
-    needed: 2,
-    createdAt: '2025-01-15',
-  },
-  {
-    id: '2',
-    vaultName: 'Dev Team Budget',
-    recipient: '0xdef...',
-    amount: 1.5,
-    reason: 'Infrastructure costs',
-    status: 'approved',
-    approvals: 2,
-    needed: 2,
-    createdAt: '2025-01-14',
-  },
-];
+import { fetchVaults, fetchProposals } from '../utils/api';
+import { useWallet } from '../hooks/useWallet';
 
 export default function ProposalsPage() {
+  const wallet = useWallet();
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadAllProposals = async () => {
+      try {
+        setLoading(true);
+
+        // First get all vaults the user has access to
+        const vaultsData = await fetchVaults(wallet.address || undefined);
+
+        // Then fetch proposals from each vault
+        const allProposals: any[] = [];
+        for (const vault of vaultsData.all) {
+          try {
+            const vaultProposals = await fetchProposals(vault.id);
+            // Add vault info to each proposal
+            const proposalsWithVaultInfo = vaultProposals.map((p: any) => ({
+              ...p,
+              vaultId: vault.id,
+              vaultName: vault.vaultId || `Vault ${vault.id.slice(0, 8)}`,
+              approvalThreshold: vault.approvalThreshold,
+            }));
+            allProposals.push(...proposalsWithVaultInfo);
+          } catch (err) {
+            console.error(`Failed to load proposals for vault ${vault.id}:`, err);
+          }
+        }
+
+        // Sort by creation date (most recent first)
+        allProposals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setProposals(allProposals);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load proposals');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAllProposals();
+  }, [wallet.address]);
+
+  if (loading) {
+    return (
+      <div className="section-spacious">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-bold mb-8 section-bold">Proposals</h1>
+          <Card padding="lg" className="text-center py-16">
+            <p className="text-gray-600">Loading proposals...</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="section-spacious">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-bold mb-8 section-bold">Proposals</h1>
+          <Card padding="lg" className="text-center py-16 border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+            <h2 className="text-2xl font-semibold mb-4 text-red-800 dark:text-red-200">Error loading proposals</h2>
+            <p className="text-red-600 dark:text-red-300">{error}</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="section-spacious">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold mb-8 section-bold">Proposals</h1>
 
-        {mockProposals.length === 0 ? (
+        {proposals.length === 0 ? (
           <Card padding="lg" className="text-center">
             <h2 className="text-2xl font-semibold mb-4">No proposals yet</h2>
             <p className="text-gray-600">
-              Proposals will appear here when created
+              Proposals will appear here when they are created in your vaults
             </p>
           </Card>
         ) : (
           <div className="space-y-4">
-            {mockProposals.map((proposal) => (
+            {proposals.map((proposal) => (
               <Link key={proposal.id} to={`/proposals/${proposal.id}`}>
                 <Card padding="lg" className="hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="flex justify-between items-start mb-4">
@@ -73,11 +123,11 @@ export default function ProposalsPage() {
                     <div className="text-sm">
                       <span className="text-gray-600">Approvals: </span>
                       <span className="font-semibold">
-                        {proposal.approvals}/{proposal.needed}
+                        {proposal.approvalCount || 0}/{proposal.approvalThreshold || 0}
                       </span>
                     </div>
                     <div className="text-sm text-gray-500">
-                      {proposal.createdAt}
+                      {new Date(proposal.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                 </Card>
