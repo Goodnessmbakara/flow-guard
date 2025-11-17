@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { useWallet } from '../hooks/useWallet';
+import { createVault } from '../utils/api';
 
 export default function CreateVaultPage() {
+  const navigate = useNavigate();
+  const wallet = useWallet();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -35,11 +41,53 @@ export default function CreateVaultPage() {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleSubmit = () => {
-    // TODO: Submit vault creation
-    console.log('Creating vault:', formData);
-    // Navigate to vault detail page after creation
-    // navigate(`/vaults/${newVaultId}`);
+  const handleSubmit = async () => {
+    if (!wallet.address) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Filter out empty signers
+      const validSigners = formData.signers.filter(s => s.trim() !== '');
+
+      // Prepare vault data
+      const vaultData = {
+        totalDeposit: parseFloat(formData.depositAmount),
+        spendingCap: formData.spendingCap ? parseFloat(formData.spendingCap) : 0,
+        approvalThreshold: parseInt(formData.approvalThreshold),
+        signers: validSigners,
+        cycleDuration: parseInt(formData.cycleDuration),
+        unlockAmount: parseFloat(formData.unlockAmount),
+        isPublic: formData.isPublic,
+      };
+
+      // Validate data
+      if (vaultData.totalDeposit <= 0) {
+        throw new Error('Deposit amount must be greater than 0');
+      }
+      if (vaultData.unlockAmount <= 0) {
+        throw new Error('Unlock amount must be greater than 0');
+      }
+      if (validSigners.length < vaultData.approvalThreshold) {
+        throw new Error('Number of signers must be at least the approval threshold');
+      }
+
+      // Create vault via API
+      const newVault = await createVault(vaultData, wallet.address);
+
+      // TODO: Sign transaction with wallet to deposit funds to vault
+      // This would involve calling wallet.signTransaction with the vault contract
+
+      // Navigate to vault detail page
+      navigate(`/vaults/${newVault.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create vault');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,6 +100,13 @@ export default function CreateVaultPage() {
         </div>
 
         <h1 className="text-4xl font-bold mb-8 section-bold">Create Vault</h1>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        )}
 
         {/* Progress Steps */}
         <div className="mb-8">
@@ -276,7 +331,7 @@ export default function CreateVaultPage() {
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
             {step > 1 ? (
-              <Button variant="outline" onClick={handleBack}>
+              <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
                 Back
               </Button>
             ) : (
@@ -285,7 +340,9 @@ export default function CreateVaultPage() {
             {step < 6 ? (
               <Button onClick={handleNext}>Next</Button>
             ) : (
-              <Button onClick={handleSubmit}>Create Vault</Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? 'Creating Vault...' : 'Create Vault'}
+              </Button>
             )}
           </div>
         </Card>
