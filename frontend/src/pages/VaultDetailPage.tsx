@@ -2,47 +2,27 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { fetchVault } from '../utils/api';
+import { fetchVault, fetchProposals, approveProposal } from '../utils/api';
 import { AddSignerModal } from '../components/vaults/AddSignerModal';
-
-// Mock proposals - will be replaced with API calls
-const mockProposals = [
-  {
-    id: '1',
-    recipient: '0xabc...',
-    amount: 2,
-    reason: 'Monthly contributor payment',
-    status: 'pending',
-    approvals: 1,
-    needed: 2,
-  },
-  {
-    id: '2',
-    recipient: '0xdef...',
-    amount: 1.5,
-    reason: 'Infrastructure costs',
-    status: 'approved',
-    approvals: 2,
-    needed: 2,
-  },
-];
+import { useWallet } from '../hooks/useWallet';
 
 export default function VaultDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const wallet = useWallet();
   const [vault, setVault] = useState<any>(null);
+  const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProposals, setLoadingProposals] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddSignerModal, setShowAddSignerModal] = useState(false);
-
-  // Mock user address - will be replaced with wallet integration
-  const userAddress = '0x1234567890123456789012345678901234567890';
+  const [approvingProposalId, setApprovingProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadVault = async () => {
       if (!id) return;
       try {
         setLoading(true);
-        const vaultData = await fetchVault(id, userAddress);
+        const vaultData = await fetchVault(id, wallet.address || undefined);
         setVault(vaultData);
         setError(null);
       } catch (err: any) {
@@ -53,12 +33,51 @@ export default function VaultDetailPage() {
     };
 
     loadVault();
+  }, [id, wallet.address]);
+
+  useEffect(() => {
+    const loadProposals = async () => {
+      if (!id) return;
+      try {
+        setLoadingProposals(true);
+        const proposalsData = await fetchProposals(id);
+        setProposals(proposalsData);
+      } catch (err: any) {
+        console.error('Failed to load proposals:', err);
+      } finally {
+        setLoadingProposals(false);
+      }
+    };
+
+    loadProposals();
   }, [id]);
 
   const role = vault?.role || 'viewer';
   const isCreator = role === 'creator';
   const isSigner = role === 'signer' || isCreator;
   const canInteract = isSigner; // Can create proposals and approve
+
+  const handleApproveProposal = async (proposalId: string) => {
+    if (!wallet.address) {
+      alert('Please connect your wallet');
+      return;
+    }
+
+    try {
+      setApprovingProposalId(proposalId);
+      await approveProposal(proposalId, wallet.address);
+
+      // Reload proposals
+      if (id) {
+        const proposalsData = await fetchProposals(id);
+        setProposals(proposalsData);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to approve proposal');
+    } finally {
+      setApprovingProposalId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -229,11 +248,13 @@ export default function VaultDetailPage() {
         {canInteract ? (
           <Card padding="lg">
             <h2 className="text-xl font-semibold mb-4">Active Proposals</h2>
-            {mockProposals.length === 0 ? (
+            {loadingProposals ? (
+              <p className="text-gray-600">Loading proposals...</p>
+            ) : proposals.length === 0 ? (
               <p className="text-gray-600">No active proposals</p>
             ) : (
               <div className="space-y-4">
-                {mockProposals.map((proposal) => (
+                {proposals.map((proposal) => (
                   <div
                     key={proposal.id}
                     className="p-4 border border-gray-200 rounded-lg hover:border-green-500 transition-colors"
@@ -247,6 +268,8 @@ export default function VaultDetailPage() {
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
                           proposal.status === 'approved'
                             ? 'bg-green-100 text-green-800'
+                            : proposal.status === 'executed'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}
                       >
@@ -260,14 +283,19 @@ export default function VaultDetailPage() {
                       <div className="text-sm">
                         <span className="text-gray-600">Approvals: </span>
                         <span className="font-semibold">
-                          {proposal.approvals}/{proposal.needed}
+                          {proposal.approvalCount || 0}/{vault.approvalThreshold || 0}
                         </span>
                       </div>
                     </div>
                     {proposal.status === 'pending' && (
                       <div className="mt-4">
-                        <Button size="sm" variant="outline">
-                          Approve Proposal
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApproveProposal(proposal.id)}
+                          disabled={approvingProposalId === proposal.id}
+                        >
+                          {approvingProposalId === proposal.id ? 'Approving...' : 'Approve Proposal'}
                         </Button>
                       </div>
                     )}
@@ -293,7 +321,7 @@ export default function VaultDetailPage() {
             onSuccess={() => {
               setShowAddSignerModal(false);
               // Reload vault data
-              fetchVault(id, userAddress).then(setVault).catch(console.error);
+              fetchVault(id, wallet.address || undefined).then(setVault).catch(console.error);
             }}
           />
         )}
