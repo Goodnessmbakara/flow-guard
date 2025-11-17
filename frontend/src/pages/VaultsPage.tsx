@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { fetchVaults, VaultsResponse } from '../utils/api';
+import { useWallet } from '../hooks/useWallet';
 
 // Vault icon component
 const VaultIcon = () => (
@@ -24,19 +25,17 @@ const VaultIcon = () => (
 type ViewMode = 'created' | 'signer' | 'all';
 
 export default function VaultsPage() {
+  const wallet = useWallet();
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [vaultsData, setVaultsData] = useState<VaultsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock user address - will be replaced with wallet integration
-  const userAddress = '0x1234567890123456789012345678901234567890';
-
   useEffect(() => {
     const loadVaults = async () => {
       try {
         setLoading(true);
-        const data = await fetchVaults(userAddress);
+        const data = await fetchVaults(wallet.address || undefined);
         setVaultsData(data);
         setError(null);
       } catch (err: any) {
@@ -47,7 +46,7 @@ export default function VaultsPage() {
     };
 
     loadVaults();
-  }, []);
+  }, [wallet.address]);
 
   // Get vaults based on view mode
   const getDisplayedVaults = () => {
@@ -72,16 +71,16 @@ export default function VaultsPage() {
   const activeProposals = displayedVaults.length * 2; // Placeholder
 
   return (
-    <div className="section-spacious bg-gradient-to-b from-white to-gray-50 min-h-screen">
+    <div className="section-spacious bg-[var(--color-background)] dark:bg-gradient-to-b dark:from-[#1a1a1a] dark:to-[#0a0a0a] min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header Section */}
         <div className="mb-12">
           <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
             <div>
-              <h1 className="text-5xl md:text-6xl font-bold section-bold mb-3 text-gray-900">
+              <h1 className="text-5xl md:text-6xl font-bold section-bold mb-3 text-[var(--color-text-primary)]">
                 Your Vaults
               </h1>
-              <p className="text-lg text-gray-600 max-w-2xl">
+              <p className="text-lg text-[var(--color-text-secondary)] max-w-2xl">
                 Manage your on-chain treasury with automated budget releases, role-based approvals, and spending guardrails.
               </p>
             </div>
@@ -94,13 +93,13 @@ export default function VaultsPage() {
 
           {/* View Mode Toggle */}
           <div className="mb-8">
-            <div className="inline-flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
+            <div className="inline-flex bg-[var(--color-surface)] rounded-lg p-1 border border-gray-200 dark:border-gray-700 shadow-sm">
               <button
                 onClick={() => setViewMode('created')}
                 className={`px-6 py-2 rounded-md text-sm font-semibold transition-all ${
                   viewMode === 'created'
-                    ? 'bg-green-500 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-[#4b6e48] text-white shadow-sm'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
                 Vaults I Created ({vaultsData?.created.length || 0})
@@ -109,8 +108,8 @@ export default function VaultsPage() {
                 onClick={() => setViewMode('signer')}
                 className={`px-6 py-2 rounded-md text-sm font-semibold transition-all ${
                   viewMode === 'signer'
-                    ? 'bg-green-500 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-[#4b6e48] text-white shadow-sm'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
                 Vaults I'm a Signer In ({vaultsData?.signerIn.length || 0})
@@ -119,8 +118,8 @@ export default function VaultsPage() {
                 onClick={() => setViewMode('all')}
                 className={`px-6 py-2 rounded-md text-sm font-semibold transition-all ${
                   viewMode === 'all'
-                    ? 'bg-green-500 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-[#4b6e48] text-white shadow-sm'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
                 All ({vaultsData?.all.length || 0})
@@ -130,17 +129,17 @@ export default function VaultsPage() {
 
           {/* Stats Bar */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <div className="text-sm text-gray-600 mb-1">Total Vaults</div>
-              <div className="text-3xl font-bold text-gray-900">{totalVaults}</div>
+            <div className="bg-[var(--color-surface)] rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-sm text-[var(--color-text-muted)] mb-1">Total Vaults</div>
+              <div className="text-3xl font-bold text-[var(--color-text-primary)]">{totalVaults}</div>
             </div>
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <div className="text-sm text-gray-600 mb-1">Total Assets</div>
-              <div className="text-3xl font-bold text-gray-900">{totalAssets} BCH</div>
+            <div className="bg-[var(--color-surface)] rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-sm text-[var(--color-text-muted)] mb-1">Total Assets</div>
+              <div className="text-3xl font-bold text-[var(--color-text-primary)]">{totalAssets} BCH</div>
             </div>
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <div className="text-sm text-gray-600 mb-1">Active Proposals</div>
-              <div className="text-3xl font-bold text-green-600">{activeProposals}</div>
+            <div className="bg-[var(--color-surface)] rounded-xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-sm text-[var(--color-text-muted)] mb-1">Active Proposals</div>
+              <div className="text-3xl font-bold text-[var(--color-accent)]">{activeProposals}</div>
             </div>
           </div>
         </div>
@@ -148,19 +147,19 @@ export default function VaultsPage() {
         {/* Vaults Grid */}
         {loading ? (
           <Card padding="lg" className="text-center py-16">
-            <div className="text-gray-600">Loading vaults...</div>
+            <div className="text-[var(--color-text-secondary)]">Loading vaults...</div>
           </Card>
         ) : error ? (
-          <Card padding="lg" className="text-center py-16 border-2 border-red-200 bg-red-50">
-            <h2 className="text-2xl font-semibold mb-4 text-red-800">Error loading vaults</h2>
-            <p className="text-red-600 mb-4">{error}</p>
+          <Card padding="lg" className="text-center py-16 border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+            <h2 className="text-2xl font-semibold mb-4 text-red-800 dark:text-red-200">Error loading vaults</h2>
+            <p className="text-red-600 dark:text-red-300 mb-4">{error}</p>
             <Button onClick={() => window.location.reload()}>Retry</Button>
           </Card>
         ) : displayedVaults.length === 0 ? (
-          <Card padding="lg" className="text-center py-16 border-2 border-dashed border-gray-200">
+          <Card padding="lg" className="text-center py-16 border-2 border-dashed border-gray-200 dark:border-gray-700">
             <VaultIcon />
-            <h2 className="text-2xl font-semibold mb-4 mt-6">No vaults yet</h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            <h2 className="text-2xl font-semibold mb-4 mt-6 text-[var(--color-text-primary)]">No vaults yet</h2>
+            <p className="text-[var(--color-text-secondary)] mb-8 max-w-md mx-auto">
               {viewMode === 'created'
                 ? "You haven't created any vaults yet. Create your first vault to start managing your treasury."
                 : viewMode === 'signer'
@@ -187,13 +186,13 @@ export default function VaultsPage() {
                 <Link key={vault.id} to={`/vaults/${vault.id}`}>
                   <Card
                     padding="lg"
-                    className="group relative overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-transparent hover:border-green-200"
+                    className="group relative overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-transparent hover:border-[#b2ac88] dark:hover:border-[#b2ac88]"
                   >
                     {/* Gradient accent bar */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#a7f3d0] via-[#d1fae5] to-[#fef3c7]" />
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#b2ac88] to-[#4b6e48]" />
 
                     {/* Background decoration */}
-                    <div className="absolute top-0 right-0 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <div className="absolute top-0 right-0 opacity-5 group-hover:opacity-10 transition-opacity text-gray-400 dark:text-gray-600">
                       <VaultIcon />
                     </div>
 
@@ -201,12 +200,12 @@ export default function VaultsPage() {
                       {/* Header */}
                       <div className="flex justify-between items-start mb-6">
                         <div className="flex-1">
-                          <h3 className="text-2xl font-bold mb-2 text-gray-900 group-hover:text-green-600 transition-colors">
+                          <h3 className="text-2xl font-bold mb-2 text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
                             {vault.vaultId || `Vault ${vault.id.slice(0, 8)}`}
                           </h3>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-[#a7f3d0] to-[#d1fae5] text-green-800 text-xs font-semibold rounded-full">
-                              <span className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse" />
+                            <span className="inline-flex items-center px-3 py-1 bg-[#4b6e48]/20 dark:bg-[#b2ac88]/20 text-[#4b6e48] dark:text-[#b2ac88] text-xs font-semibold rounded-full">
+                              <span className="w-2 h-2 bg-[#4b6e48] dark:bg-[#b2ac88] rounded-full mr-2 animate-pulse" />
                               active
                             </span>
                             <span
@@ -231,30 +230,30 @@ export default function VaultsPage() {
 
                       {/* Total Amount - Large Display */}
                       <div className="mb-6">
-                        <div className="text-sm text-gray-500 mb-1">Total Balance</div>
-                        <div className="text-4xl font-bold text-gray-900">{vault.totalDeposit || 0} BCH</div>
+                        <div className="text-sm text-[var(--color-text-muted)] mb-1">Total Balance</div>
+                        <div className="text-4xl font-bold text-[var(--color-text-primary)]">{vault.totalDeposit || 0} BCH</div>
                       </div>
 
                       {/* Progress Visualization */}
                       {vault.totalDeposit > 0 && (
                         <div className="mb-6">
                           <div className="flex justify-between text-sm mb-2">
-                            <span className="text-gray-600">Unlocked</span>
-                            <span className="font-semibold text-green-600">{unlocked.toFixed(2)} BCH</span>
+                            <span className="text-[var(--color-text-secondary)]">Unlocked</span>
+                            <span className="font-semibold text-[var(--color-accent)]">{unlocked.toFixed(2)} BCH</span>
                           </div>
-                          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all duration-500"
+                              className="h-full bg-gradient-to-r from-[#4b6e48] to-[#b2ac88] rounded-full transition-all duration-500"
                               style={{ width: `${unlockPercentage}%` }}
                             />
                           </div>
                           <div className="flex justify-between text-sm mt-2">
-                            <span className="text-gray-600">Locked</span>
-                            <span className="font-semibold text-gray-700">{locked.toFixed(2)} BCH</span>
+                            <span className="text-[var(--color-text-secondary)]">Locked</span>
+                            <span className="font-semibold text-[var(--color-text-secondary)]">{locked.toFixed(2)} BCH</span>
                           </div>
-                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-1">
+                          <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mt-1">
                             <div
-                              className="h-full bg-gradient-to-r from-gray-300 to-gray-400 rounded-full transition-all duration-500"
+                              className="h-full bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-500 dark:to-gray-600 rounded-full transition-all duration-500"
                               style={{ width: `${lockPercentage}%` }}
                             />
                           </div>
@@ -262,7 +261,7 @@ export default function VaultsPage() {
                       )}
 
                       {/* Footer */}
-                      <div className="pt-6 border-t border-gray-100 flex items-center justify-between">
+                      <div className="pt-6 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <svg
                             width="16"
@@ -270,7 +269,7 @@ export default function VaultsPage() {
                             viewBox="0 0 16 16"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
-                            className="text-green-600"
+                            className="text-[var(--color-accent)]"
                           >
                             <path
                               d="M8 2L3 5V8C3 10.5 5.5 12.5 8 14C10.5 12.5 13 10.5 13 8V5L8 2Z"
@@ -279,11 +278,11 @@ export default function VaultsPage() {
                               fill="none"
                             />
                           </svg>
-                          <span className="text-sm font-semibold text-gray-700">
+                          <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
                             {vault.signers?.length || 0} signer{(vault.signers?.length || 0) !== 1 ? 's' : ''}
                           </span>
                         </div>
-                        <div className="text-gray-400 group-hover:text-green-600 transition-colors">
+                        <div className="text-gray-400 group-hover:text-[var(--color-accent)] transition-colors">
                           <svg
                             width="20"
                             height="20"
