@@ -1,7 +1,7 @@
 FROM node:22-alpine
 
 # Install dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ sqlite-dev
 
 WORKDIR /app
 
@@ -12,8 +12,8 @@ COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm
 RUN pnpm install --frozen-lockfile
 
-# Rebuild better-sqlite3 for Alpine Linux
-RUN pnpm rebuild better-sqlite3
+# Rebuild better-sqlite3 from source for Alpine
+RUN cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npm run build-release
 
 # Copy source code
 COPY . .
