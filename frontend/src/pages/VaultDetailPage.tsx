@@ -21,6 +21,8 @@ export default function VaultDetailPage() {
   const [unlockingCycle, setUnlockingCycle] = useState<number | null>(null);
   const [eligibleCycles, setEligibleCycles] = useState<number[]>([]);
   const [currentCycle, setCurrentCycle] = useState<number>(0);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   useEffect(() => {
     const loadVault = async () => {
@@ -75,6 +77,28 @@ export default function VaultDetailPage() {
     };
 
     loadEligibleCycles();
+  }, [id, vault?.contractAddress]);
+
+  useEffect(() => {
+    const loadTransactions = async () => {
+      if (!id || !vault?.contractAddress) return;
+      try {
+        setLoadingTransactions(true);
+        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+          (import.meta.env.PROD ? 'https://flow-guard.fly.dev/api' : 'http://localhost:3001/api');
+        const response = await fetch(`${API_BASE_URL}/vaults/${id}/transactions`);
+        if (response.ok) {
+          const data = await response.json();
+          setTransactions(data.transactions || []);
+        }
+      } catch (err) {
+        console.error('Failed to load transactions:', err);
+      } finally {
+        setLoadingTransactions(false);
+      }
+    };
+
+    loadTransactions();
   }, [id, vault?.contractAddress]);
 
   const role = vault?.role || 'viewer';
@@ -547,7 +571,7 @@ export default function VaultDetailPage() {
         )}
 
         {vault?.contractAddress && canInteract && (
-          <Card padding="lg">
+          <Card padding="lg" className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Unlock Cycles</h2>
             {eligibleCycles.length === 0 ? (
               <div className="text-gray-600">
@@ -596,6 +620,83 @@ export default function VaultDetailPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {vault?.contractAddress && (
+          <Card padding="lg">
+            <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
+            {loadingTransactions ? (
+              <p className="text-gray-600">Loading transactions...</p>
+            ) : transactions.length === 0 ? (
+              <div className="text-gray-600">
+                <p className="mb-2">No on-chain transactions found for this vault.</p>
+                <p className="text-sm text-gray-500">
+                  Transactions will appear here once proposals are approved and executed on-chain.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((tx: any, index: number) => (
+                  <div
+                    key={index}
+                    className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              tx.type === 'proposal_created'
+                                ? 'bg-blue-100 text-blue-800'
+                                : tx.type === 'proposal_approved'
+                                ? 'bg-green-100 text-green-800'
+                                : tx.type === 'payout_executed'
+                                ? 'bg-purple-100 text-purple-800'
+                                : tx.type === 'cycle_unlocked'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {tx.type?.replace(/_/g, ' ').toUpperCase() || 'TRANSACTION'}
+                          </span>
+                          {tx.amount && (
+                            <span className="font-semibold text-gray-900">{tx.amount} BCH</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {tx.description || 'On-chain transaction'}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-gray-500">
+                        {tx.timestamp && new Date(tx.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-xs">
+                        <span className="text-gray-600">TX ID: </span>
+                        <a
+                          href={`https://chipnet.chaingraph.cash/tx/${tx.txid}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-blue-600 hover:underline break-all"
+                        >
+                          {tx.txid?.slice(0, 16)}...{tx.txid?.slice(-16)}
+                        </a>
+                      </div>
+                      <a
+                        href={`https://chipnet.chaingraph.cash/tx/${tx.txid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        View on Explorer →
+                      </a>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </Card>
