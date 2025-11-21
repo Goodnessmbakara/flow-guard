@@ -4,4 +4,4 @@
  */
 
 export { MainnetConnector } from './mainnet-connector';
-export { SeleneConnector } from './selene-connector';
+export { BCHExtensionConnector } from './bch-extension-connector';
