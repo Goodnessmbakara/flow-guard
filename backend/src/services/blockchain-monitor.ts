@@ -12,7 +12,7 @@ export class BlockchainMonitor {
   private isRunning: boolean = false;
   private intervalId: NodeJS.Timeout | null = null;
 
-  constructor(network: 'mainnet' | 'testnet' | 'regtest' | 'chipnet' = 'chipnet') {
+  constructor(network: 'mainnet' | 'testnet3' | 'testnet4' | 'chipnet' = 'chipnet') {
     this.contractService = new ContractService(network);
   }
 

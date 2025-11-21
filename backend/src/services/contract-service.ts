@@ -31,9 +31,9 @@ export interface UTXO {
  */
 export class ContractService {
   private provider: ElectrumNetworkProvider;
-  private network: 'mainnet' | 'testnet' | 'regtest' | 'chipnet';
+  private network: 'mainnet' | 'testnet3' | 'testnet4' | 'chipnet';
 
-  constructor(network: 'mainnet' | 'testnet' | 'regtest' | 'chipnet' = 'chipnet') {
+  constructor(network: 'mainnet' | 'testnet3' | 'testnet4' | 'chipnet' = 'chipnet') {
     this.network = network;
     this.provider = new ElectrumNetworkProvider(network);
   }
@@ -69,10 +69,13 @@ export class ContractService {
         network: this.network,
       });
 
+      // Get bytecode from artifact (already compiled)
+      const bytecode = artifact.bytecode || '';
+
       return {
         contractAddress: contract.address,
         contractId: contract.toString(),
-        bytecode: binToHex(contract.redeemScript),
+        bytecode: bytecode,
       };
     } catch (error) {
       console.error('Failed to deploy vault:', error);
@@ -131,11 +134,11 @@ export class ContractService {
   async getUTXOs(contractAddress: string): Promise<UTXO[]> {
     try {
       const utxos = await this.provider.getUtxos(contractAddress);
-      return utxos.map((utxo) => ({
+      return utxos.map((utxo: any) => ({
         txid: utxo.txid,
         vout: utxo.vout,
         satoshis: Number(utxo.satoshis),
-        height: utxo.height,
+        height: utxo.height || undefined,
       }));
     } catch (error) {
       console.error('Failed to get UTXOs:', error);
@@ -231,7 +234,7 @@ export class ContractService {
   ): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        const txInfo = await this.provider.getRawTransaction(txid, true) as any;
+        const txInfo = await this.provider.getRawTransaction(txid) as any;
         if (txInfo && txInfo.confirmations && txInfo.confirmations > 0) {
           console.log(`Transaction ${txid} confirmed with ${txInfo.confirmations} confirmations`);
           return true;
@@ -254,7 +257,7 @@ export class ContractService {
    */
   async getTransaction(txid: string): Promise<any> {
     try {
-      return await this.provider.getRawTransaction(txid, true);
+      return await this.provider.getRawTransaction(txid);
     } catch (error) {
       console.error('Failed to get transaction:', error);
       return null;
