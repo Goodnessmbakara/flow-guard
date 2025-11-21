@@ -36,23 +36,45 @@ export class MainnetConnector implements IWalletConnector {
   }
 
   /**
-   * Connect to wallet (create or restore from localStorage)
+   * Connect to wallet (create or restore from localStorage or seed phrase)
+   * @param seedPhrase - Optional seed phrase to import existing wallet
    */
-  async connect(): Promise<WalletInfo> {
+  async connect(seedPhrase?: string): Promise<WalletInfo> {
     try {
-      // Check if wallet exists in localStorage
-      const savedWalletId = localStorage.getItem('mainnet_wallet_id');
-
-      if (savedWalletId) {
-        // Restore existing wallet
-        this.wallet = await this.restoreWallet(savedWalletId);
-      } else {
-        // Create new wallet
-        this.wallet = await this.createWallet();
+      if (seedPhrase) {
+        // Import wallet from seed phrase
+        this.wallet = await this.importWallet(seedPhrase);
 
         // Save wallet ID for future sessions
         const walletId = await this.wallet.toString();
         localStorage.setItem('mainnet_wallet_id', walletId);
+        localStorage.setItem('mainnet_wallet_seed', seedPhrase);
+      } else {
+        // Check if wallet exists in localStorage
+        const savedWalletId = localStorage.getItem('mainnet_wallet_id');
+        const savedSeed = localStorage.getItem('mainnet_wallet_seed');
+
+        if (savedSeed) {
+          // Restore from seed phrase (more reliable)
+          this.wallet = await this.importWallet(savedSeed);
+        } else if (savedWalletId) {
+          // Restore from wallet ID (fallback)
+          this.wallet = await this.restoreWallet(savedWalletId);
+        } else {
+          // Create new wallet and show seed phrase to user
+          this.wallet = await this.createWallet();
+
+          // Save wallet for future sessions
+          const walletId = await this.wallet.toString();
+          const seed = await this.getSeedPhrase();
+
+          localStorage.setItem('mainnet_wallet_id', walletId);
+          localStorage.setItem('mainnet_wallet_seed', seed);
+
+          // Alert user to save their seed phrase
+          console.warn('NEW WALLET CREATED! Save this seed phrase:', seed);
+          alert(`⚠️ NEW WALLET CREATED!\n\nPlease save this seed phrase securely:\n\n${seed}\n\nYou will need it to restore your wallet.`);
+        }
       }
 
       const address = await this.getAddress();
@@ -105,11 +127,45 @@ export class MainnetConnector implements IWalletConnector {
   }
 
   /**
+   * Import wallet from seed phrase
+   */
+  private async importWallet(seedPhrase: string): Promise<Wallet | TestNetWallet | RegTestWallet> {
+    try {
+      switch (this.network) {
+        case 'testnet':
+        case 'chipnet':
+          return await TestNetWallet.fromSeed(seedPhrase);
+        case 'mainnet':
+          return await Wallet.fromSeed(seedPhrase);
+        default:
+          return await TestNetWallet.fromSeed(seedPhrase);
+      }
+    } catch (error) {
+      console.error('Failed to import wallet from seed phrase:', error);
+      throw new Error('Invalid seed phrase. Please check and try again.');
+    }
+  }
+
+  /**
    * Disconnect wallet
+   * Note: This does NOT delete the seed phrase from localStorage
+   * To completely remove wallet, user must manually clear localStorage
    */
   async disconnect(): Promise<void> {
     this.wallet = null;
+    // Keep seed phrase in localStorage for reconnection
+    // Only remove wallet_id
     localStorage.removeItem('mainnet_wallet_id');
+  }
+
+  /**
+   * Permanently delete wallet from localStorage
+   * WARNING: This will remove the seed phrase - wallet cannot be recovered without backup
+   */
+  async deleteWallet(): Promise<void> {
+    this.wallet = null;
+    localStorage.removeItem('mainnet_wallet_id');
+    localStorage.removeItem('mainnet_wallet_seed');
   }
 
   /**
