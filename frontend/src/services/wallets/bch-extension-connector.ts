@@ -28,10 +28,11 @@ interface BCHWallet {
   removeListener?(event: string, callback: (...args: any[]) => void): void;
 }
 
-// Extend Window interface to include bitcoincash
+// Extend Window interface to include bitcoincash and paytaca
 declare global {
   interface Window {
     bitcoincash?: BCHWallet;
+    paytaca?: BCHWallet;
   }
 }
 
@@ -43,9 +44,31 @@ export class BCHExtensionConnector implements IWalletConnector {
 
   /**
    * Check if BCH wallet extension is installed
+   * Waits up to 3 seconds for wallet to be injected
    */
   async isAvailable(): Promise<boolean> {
-    return typeof window !== 'undefined' && !!window.bitcoincash;
+    if (typeof window === 'undefined') return false;
+
+    // Check if wallet is already available
+    if (window.bitcoincash || window.paytaca) return true;
+
+    // Wait for wallet to be injected (Paytaca may inject asynchronously)
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 30; // 3 seconds total (30 * 100ms)
+
+      const checkWallet = setInterval(() => {
+        attempts++;
+
+        if (window.bitcoincash || window.paytaca) {
+          clearInterval(checkWallet);
+          resolve(true);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkWallet);
+          resolve(false);
+        }
+      }, 100);
+    });
   }
 
   /**
@@ -55,11 +78,13 @@ export class BCHExtensionConnector implements IWalletConnector {
     if (typeof window === 'undefined') return 'Unknown';
 
     // Try to detect which wallet is installed
-    // This is a heuristic approach as wallets may not expose their names
+    if (window.paytaca) {
+      return 'Paytaca Wallet';
+    }
+
     if (window.bitcoincash) {
-      // Check for specific wallet indicators
-      // Note: This may need to be updated based on actual wallet implementations
-      return 'BCH Wallet'; // Generic name
+      // Could be Badger or other wallet
+      return 'BCH Wallet';
     }
 
     return 'Unknown';
@@ -69,14 +94,25 @@ export class BCHExtensionConnector implements IWalletConnector {
    * Connect to BCH wallet (existing wallet from browser extension)
    */
   async connect(): Promise<WalletInfo> {
-    if (typeof window === 'undefined' || !window.bitcoincash) {
+    if (typeof window === 'undefined') {
+      throw new Error('Window is not available');
+    }
+
+    // Check for wallet availability
+    const walletAvailable = await this.isAvailable();
+    if (!walletAvailable) {
       throw new Error(
         'BCH wallet extension not found. Please install Badger or Paytaca wallet from the Chrome Web Store.'
       );
     }
 
     try {
-      this.wallet = window.bitcoincash;
+      // Use whichever wallet is available (prefer bitcoincash standard API)
+      this.wallet = window.bitcoincash || window.paytaca || null;
+
+      if (!this.wallet) {
+        throw new Error('Wallet not available');
+      }
 
       // Get address from the user's existing wallet
       const address = await this.wallet.getAddress();
