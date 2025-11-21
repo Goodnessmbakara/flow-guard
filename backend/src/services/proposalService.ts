@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
-import db from '../database/schema';
-import { Proposal, CreateProposalDto, ApproveProposalDto, ProposalStatus } from '../models/Proposal';
-import { StateService } from './state-service';
-import { ContractService } from './contract-service';
-import { VaultService } from './vaultService';
+import db from '../database/schema.js';
+import { Proposal, CreateProposalDto, ApproveProposalDto, ProposalStatus } from '../models/Proposal.js';
+import { StateService } from './state-service.js';
+import { ContractService } from './contract-service.js';
+import { VaultService } from './vaultService.js';
 
 export class ProposalService {
   /**
@@ -93,6 +93,7 @@ export class ProposalService {
 
     const currentState = vault.state || 0;
     const amountSatoshis = Math.floor(proposal.amount * 100000000);
+    const vaultStartTime = vault.startTime ? Math.floor(vault.startTime.getTime() / 1000) : Math.floor(Date.now() / 1000);
 
     // Create on-chain proposal transaction
     const contractService = new ContractService('chipnet');
@@ -104,6 +105,8 @@ export class ProposalService {
       currentState,
       vault.signerPubkeys,
       vault.approvalThreshold,
+      vault.cycleDuration,
+      vaultStartTime,
       vault.spendingCap * 100000000
     );
 
@@ -240,6 +243,7 @@ export class ProposalService {
     }
 
     const currentState = vault.state || 0;
+    const vaultStartTime = vault.startTime ? Math.floor(vault.startTime.getTime() / 1000) : Math.floor(Date.now() / 1000);
 
     // Create on-chain approval transaction
     const contractService = new ContractService('chipnet');
@@ -248,7 +252,10 @@ export class ProposalService {
       proposal.proposalId,
       currentState,
       vault.signerPubkeys,
-      vault.approvalThreshold
+      vault.approvalThreshold,
+      vault.cycleDuration,
+      vaultStartTime,
+      vault.spendingCap * 100000000
     );
 
     return result;
@@ -288,7 +295,7 @@ export class ProposalService {
    */
   static async createExecutePayoutTransaction(
     proposalId: string
-  ): Promise<{ transaction: any; newState: number }> {
+  ): Promise<{ txHex: string; txId: string; requiresSignatures: string[] }> {
     const proposal = this.getProposalById(proposalId);
     if (!proposal) {
       throw new Error('Proposal not found');
@@ -311,10 +318,11 @@ export class ProposalService {
     }
 
     const amountSatoshis = Math.floor(proposal.amount * 100000000);
+    const vaultStartTime = vault.startTime ? Math.floor(vault.startTime.getTime() / 1000) : Math.floor(Date.now() / 1000);
 
     // Create execute payout transaction
     const contractService = new ContractService('chipnet');
-    const result = await contractService.createExecutePayout(
+    const result = await contractService.createPayoutTransaction(
       vault.contractAddress,
       proposal.recipient,
       amountSatoshis,
@@ -322,6 +330,8 @@ export class ProposalService {
       currentState,
       vault.signerPubkeys,
       vault.approvalThreshold,
+      vault.cycleDuration,
+      vaultStartTime,
       vault.spendingCap * 100000000
     );
 

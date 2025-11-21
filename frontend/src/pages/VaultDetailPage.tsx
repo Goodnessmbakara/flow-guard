@@ -137,7 +137,7 @@ export default function VaultDetailPage() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold section-bold">
-                {vault.vaultId || `Vault ${vault.id?.slice(0, 8)}`}
+                {vault.name || vault.vaultId || `Vault ${vault.id?.slice(0, 8)}`}
               </h1>
               <span
                 className={`inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full ${

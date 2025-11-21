@@ -11,7 +11,7 @@
  *   2. Have 3 signer public keys ready (or use the generated test keys)
  */
 
-import { ContractService } from '../services/contract-service';
+import { ContractService } from '../services/contract-service.js';
 import { binToHex } from '@bitauth/libauth';
 import { randomBytes } from 'crypto';
 

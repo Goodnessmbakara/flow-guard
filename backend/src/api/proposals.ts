@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { ProposalService } from '../services/proposalService';
-import { CreateProposalDto, ApproveProposalDto } from '../models/Proposal';
+import { ProposalService } from '../services/proposalService.js';
+import { CreateProposalDto, ApproveProposalDto } from '../models/Proposal.js';
 
 const router = Router();
 

@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import db from '../database/schema';
-import { getCycleUnlockScheduler } from '../services/cycle-unlock-scheduler';
-import { StateService } from '../services/state-service';
-import { VaultService } from '../services/vaultService';
+import db from '../database/schema.js';
+import { getCycleUnlockScheduler } from '../services/cycle-unlock-scheduler.js';
+import { StateService } from '../services/state-service.js';
+import { VaultService } from '../services/vaultService.js';
 
 const router = Router();
 
@@ -61,7 +61,7 @@ router.get('/vaults/:vaultId/cycles/current', (req, res) => {
   }
 });
 
-// Trigger unlock for a specific cycle
+// Trigger unlock for a specific cycle (database only)
 router.post('/vaults/:vaultId/unlock', async (req, res) => {
   try {
     const { cycleNumber } = req.body;
@@ -93,6 +93,62 @@ router.post('/vaults/:vaultId/unlock', async (req, res) => {
       message: 'Cycle unlocked successfully',
       vaultId: result.vaultId,
       cycleNumber: result.cycleNumber,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create on-chain unlock transaction
+router.post('/vaults/:vaultId/unlock-onchain', async (req, res) => {
+  try {
+    const { cycleNumber } = req.body;
+    const vaultId = req.params.vaultId;
+    const signerPublicKey = req.headers['x-signer-public-key'] as string;
+
+    if (cycleNumber === undefined) {
+      return res.status(400).json({ error: 'cycleNumber is required' });
+    }
+
+    if (!signerPublicKey) {
+      return res.status(400).json({ error: 'Signer public key is required' });
+    }
+
+    const vault = VaultService.getVaultByVaultId(vaultId);
+    if (!vault || !vault.contractAddress || !vault.signerPubkeys) {
+      return res.status(404).json({ error: 'Vault not found or missing contract information' });
+    }
+
+    // Verify signer is authorized
+    const signerIndex = vault.signerPubkeys.findIndex(
+      pk => pk.toLowerCase() === signerPublicKey.toLowerCase()
+    );
+    if (signerIndex === -1) {
+      return res.status(403).json({ error: 'Signer not authorized' });
+    }
+
+    const currentState = vault.state || 0;
+    const vaultStartTime = vault.startTime ? Math.floor(vault.startTime.getTime() / 1000) : Math.floor(Date.now() / 1000);
+
+    // Import ContractService
+    const { ContractService } = await import('../services/contract-service.js');
+    const contractService = new ContractService('chipnet');
+
+    // Create unlock transaction
+    const result = await contractService.createCycleUnlock(
+      vault.contractAddress,
+      cycleNumber,
+      currentState,
+      vaultStartTime,
+      vault.cycleDuration,
+      vault.signerPubkeys,
+      vault.approvalThreshold,
+      vault.spendingCap * 100000000
+    );
+
+    res.json({
+      transaction: result.transaction,
+      newState: result.newState,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

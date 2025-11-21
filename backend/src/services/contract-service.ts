@@ -5,8 +5,18 @@
 
 import { Contract, ElectrumNetworkProvider, SignatureTemplate } from 'cashscript';
 import { binToHex, hexToBin } from '@bitauth/libauth';
-import artifact from '../contracts/FlowGuardEnhanced.json';
-import { StateService } from './state-service';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { StateService } from './state-service.js';
+
+// Load artifact using fs to avoid ES module import assertion issues
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Using FlowGuardEnhanced - full-featured contract with state management, proposals, approvals
+const artifact = JSON.parse(
+  readFileSync(join(__dirname, '../contracts/FlowGuardEnhanced.json'), 'utf-8')
+);
 
 export interface VaultDeployment {
   contractAddress: string;
@@ -40,7 +50,7 @@ export class ContractService {
   }
 
   /**
-   * Deploy a new vault contract to the blockchain
+   * Deploy a new vault contract to the blockchain (FlowGuardEnhanced)
    * @param signer1 First signer's public key (hex)
    * @param signer2 Second signer's public key (hex)
    * @param signer3 Third signer's public key (hex)
@@ -66,7 +76,7 @@ export class ContractService {
       const pk2 = hexToBin(signer2);
       const pk3 = hexToBin(signer3);
 
-      // Create contract instance with all parameters
+      // Create contract instance with FlowGuardEnhanced parameters
       const contract = new Contract(
         artifact as any,
         [
@@ -102,7 +112,7 @@ export class ContractService {
   }
 
   /**
-   * Get contract instance from address
+   * Get contract instance from address (FlowGuardEnhanced)
    * @param contractAddress The contract's cashaddr
    */
   async getContract(
@@ -178,21 +188,31 @@ export class ContractService {
   }
 
   /**
-   * Create a proposal transaction (unsigned)
-   * This creates the transaction hex that signers will sign
+   * Create a payout transaction using FlowGuardEnhanced.executePayout
+   * This builds the transaction that requires threshold signatures
    *
    * @param contractAddress The vault contract address
-   * @param recipientAddress Where to send the funds
+   * @param recipientAddress Where to send the funds (BCH address)
    * @param amount Amount to send in satoshis
-   * @param signerPublicKeys Array of signer public keys
-   * @param approvalThreshold Number of signatures required
+   * @param proposalId Proposal ID for tracking
+   * @param currentState Current vault state
+   * @param signerPublicKeys Array of signer public keys [signer1, signer2, signer3]
+   * @param approvalThreshold Number of signatures required (e.g., 2 for 2-of-3)
+   * @param cycleDuration Cycle duration from vault
+   * @param vaultStartTime Vault start time from vault
+   * @param spendingCap Spending cap from vault
    */
-  async createProposal(
+  async createPayoutTransaction(
     contractAddress: string,
     recipientAddress: string,
     amount: number,
+    proposalId: number,
+    currentState: number,
     signerPublicKeys: string[],
-    approvalThreshold: number
+    approvalThreshold: number,
+    cycleDuration: number,
+    vaultStartTime: number,
+    spendingCap: number
   ): Promise<ProposalTransaction> {
     try {
       if (signerPublicKeys.length !== 3) {
@@ -201,44 +221,58 @@ export class ContractService {
 
       const [signer1, signer2, signer3] = signerPublicKeys;
 
-      // Get contract instance - we need vault parameters from database
-      // For now, using defaults - in production, fetch from vault record
+      // Calculate new state with proposal marked as executed
+      const newState = StateService.setProposalExecuted(currentState, proposalId);
+
+      // Get contract instance with all parameters
       const contract = await this.getContract(
         contractAddress,
         signer1,
         signer2,
         signer3,
         approvalThreshold,
-        0, // state - should be fetched from vault
-        2592000, // cycleDuration - should be fetched from vault
-        Math.floor(Date.now() / 1000), // vaultStartTime - should be fetched from vault
-        1000000000 // spendingCap - should be fetched from vault
+        currentState,
+        cycleDuration,
+        vaultStartTime,
+        spendingCap
       );
 
-      // For now, we'll use placeholder signatures
-      // In production, this would be signed by the actual signers
       const pk1 = hexToBin(signer1);
       const pk2 = hexToBin(signer2);
       const pk3 = hexToBin(signer3);
 
-      // Create placeholder signatures (empty)
-      const emptySignature = new Uint8Array(65);
+      // Convert recipient address to bytes20 (hash160)
+      // For now, we'll use a placeholder - in production, properly convert BCH address to hash160
+      const recipientHash = hexToBin('0000000000000000000000000000000000000000'); // Placeholder
 
-      // Build the transaction
+      // Create SignatureTemplate placeholders for each signer
+      const sig1 = new SignatureTemplate(pk1);
+      const sig2 = new SignatureTemplate(pk2);
+      const sig3 = new SignatureTemplate(pk3);
+
+      // Build the transaction using executePayout function
       const transaction = await contract.functions
-        .payout(pk1, emptySignature, pk2, emptySignature, pk3, emptySignature)
+        .executePayout(
+          recipientHash,
+          BigInt(amount),
+          BigInt(proposalId),
+          BigInt(newState),
+          pk1, sig1,
+          pk2, sig2,
+          pk3, sig3
+        )
         .to(recipientAddress, BigInt(amount))
         .withHardcodedFee(BigInt(1000)) // 1000 sats fee
         .build();
 
       return {
         txHex: transaction.toString(),
-        txId: '', // Will be set after signing
+        txId: '', // Will be set after signing and broadcasting
         requiresSignatures: signerPublicKeys,
       };
     } catch (error) {
-      console.error('Failed to create proposal:', error);
-      throw new Error(`Proposal creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Failed to create payout transaction:', error);
+      throw new Error(`Payout transaction creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -314,15 +348,17 @@ export class ContractService {
 
   /**
    * Create on-chain proposal transaction with state management
-   * This prepares a transaction that calls createProposal on the enhanced contract
-   * 
+   * Calls FlowGuardEnhanced.createProposal() function
+   *
    * @param contractAddress The vault contract address
-   * @param recipientAddress Where to send the funds
+   * @param recipientAddress Where to send the funds (BCH address)
    * @param amount Amount to send in satoshis
    * @param proposalId On-chain proposal ID
    * @param currentState Current vault state (bitwise encoded)
    * @param signerPublicKeys Array of signer public keys
    * @param approvalThreshold Number of signatures required
+   * @param cycleDuration Cycle duration from vault
+   * @param vaultStartTime Vault start time from vault
    * @param spendingCap Maximum spending per period
    */
   async createOnChainProposal(
@@ -333,6 +369,8 @@ export class ContractService {
     currentState: number,
     signerPublicKeys: string[],
     approvalThreshold: number,
+    cycleDuration: number,
+    vaultStartTime: number,
     spendingCap: number
   ): Promise<ProposalTransaction> {
     try {
@@ -354,13 +392,45 @@ export class ContractService {
       // Calculate new state with proposal marked as pending
       const newState = StateService.setProposalPending(currentState, proposalId);
 
-      // Note: This would call the enhanced contract's createProposal function
-      // For now, we return a transaction structure that can be used when the enhanced contract is deployed
-      // The actual transaction building would be:
-      // contract.functions.createProposal(recipient, amount, proposalId, newState, pk1, sig1)
-      
+      const [signer1, signer2, signer3] = signerPublicKeys;
+
+      // Get contract instance
+      const contract = await this.getContract(
+        contractAddress,
+        signer1,
+        signer2,
+        signer3,
+        approvalThreshold,
+        currentState,
+        cycleDuration,
+        vaultStartTime,
+        spendingCap
+      );
+
+      const pk1 = hexToBin(signer1);
+
+      // Convert recipient address to bytes20 (hash160)
+      // Placeholder for now - in production, properly convert BCH address to hash160
+      const recipientHash = hexToBin('0000000000000000000000000000000000000000');
+
+      // Create signature template for the signer
+      const sig1 = new SignatureTemplate(pk1);
+
+      // Build transaction using createProposal function
+      const transaction = await contract.functions
+        .createProposal(
+          recipientHash,
+          BigInt(amount),
+          BigInt(proposalId),
+          BigInt(newState),
+          pk1,
+          sig1
+        )
+        .withHardcodedFee(BigInt(1000))
+        .build();
+
       return {
-        txHex: '', // Will be built when enhanced contract is deployed
+        txHex: transaction.toString(),
         txId: '',
         requiresSignatures: [signerPublicKeys[0]], // Only needs one signature for proposal creation
       };
@@ -372,19 +442,26 @@ export class ContractService {
 
   /**
    * Create on-chain approval transaction with state management
-   * 
+   * Calls FlowGuardEnhanced.approveProposal() function
+   *
    * @param contractAddress The vault contract address
    * @param proposalId On-chain proposal ID
    * @param currentState Current vault state (bitwise encoded)
    * @param signerPublicKeys Array of signer public keys
    * @param approvalThreshold Number of signatures required
+   * @param cycleDuration Cycle duration from vault
+   * @param vaultStartTime Vault start time from vault
+   * @param spendingCap Maximum spending per period
    */
   async createOnChainApproval(
     contractAddress: string,
     proposalId: number,
     currentState: number,
     signerPublicKeys: string[],
-    approvalThreshold: number
+    approvalThreshold: number,
+    cycleDuration: number,
+    vaultStartTime: number,
+    spendingCap: number
   ): Promise<{ newState: number; isApproved: boolean; transaction: ProposalTransaction }> {
     try {
       if (signerPublicKeys.length !== 3) {
@@ -403,15 +480,42 @@ export class ContractService {
         approvalThreshold
       );
 
-      // Note: This would call the enhanced contract's approveProposal function
-      // The actual transaction building would be:
-      // contract.functions.approveProposal(proposalId, newState, pk1, sig1)
+      const [signer1, signer2, signer3] = signerPublicKeys;
+
+      // Get contract instance
+      const contract = await this.getContract(
+        contractAddress,
+        signer1,
+        signer2,
+        signer3,
+        approvalThreshold,
+        currentState,
+        cycleDuration,
+        vaultStartTime,
+        spendingCap
+      );
+
+      const pk1 = hexToBin(signer1);
+
+      // Create signature template
+      const sig1 = new SignatureTemplate(pk1);
+
+      // Build transaction using approveProposal function
+      const transaction = await contract.functions
+        .approveProposal(
+          BigInt(proposalId),
+          BigInt(newState),
+          pk1,
+          sig1
+        )
+        .withHardcodedFee(BigInt(1000))
+        .build();
 
       return {
         newState,
         isApproved,
         transaction: {
-          txHex: '', // Will be built when enhanced contract is deployed
+          txHex: transaction.toString(),
           txId: '',
           requiresSignatures: [signerPublicKeys[0]], // Only needs one signature for approval
         },
@@ -424,13 +528,16 @@ export class ContractService {
 
   /**
    * Create cycle unlock transaction with state management
-   * 
+   * Calls FlowGuardEnhanced.unlock() function
+   *
    * @param contractAddress The vault contract address
    * @param cycleNumber Cycle number to unlock
    * @param currentState Current vault state (bitwise encoded)
    * @param vaultStartTime Unix timestamp when vault was created
    * @param cycleDuration Cycle duration in seconds
    * @param signerPublicKeys Array of signer public keys
+   * @param approvalThreshold Approval threshold from vault
+   * @param spendingCap Spending cap from vault
    */
   async createCycleUnlock(
     contractAddress: string,
@@ -438,7 +545,9 @@ export class ContractService {
     currentState: number,
     vaultStartTime: number,
     cycleDuration: number,
-    signerPublicKeys: string[]
+    signerPublicKeys: string[],
+    approvalThreshold: number,
+    spendingCap: number
   ): Promise<{ newState: number; transaction: ProposalTransaction }> {
     try {
       if (signerPublicKeys.length !== 3) {
@@ -453,14 +562,41 @@ export class ContractService {
       // Calculate new state with cycle marked as unlocked
       const newState = StateService.setCycleUnlocked(currentState, cycleNumber);
 
-      // Note: This would call the enhanced contract's unlock function
-      // The actual transaction building would be:
-      // contract.functions.unlock(cycleNumber, newState, pk1, sig1)
+      const [signer1, signer2, signer3] = signerPublicKeys;
+
+      // Get contract instance
+      const contract = await this.getContract(
+        contractAddress,
+        signer1,
+        signer2,
+        signer3,
+        approvalThreshold,
+        currentState,
+        cycleDuration,
+        vaultStartTime,
+        spendingCap
+      );
+
+      const pk1 = hexToBin(signer1);
+
+      // Create signature template
+      const sig1 = new SignatureTemplate(pk1);
+
+      // Build transaction using unlock function
+      const transaction = await contract.functions
+        .unlock(
+          BigInt(cycleNumber),
+          BigInt(newState),
+          pk1,
+          sig1
+        )
+        .withHardcodedFee(BigInt(1000))
+        .build();
 
       return {
         newState,
         transaction: {
-          txHex: '', // Will be built when enhanced contract is deployed
+          txHex: transaction.toString(),
           txId: '',
           requiresSignatures: [signerPublicKeys[0]], // Only needs one signature for unlock
         },

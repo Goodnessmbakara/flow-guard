@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
-import db from '../database/schema';
-import { Vault, CreateVaultDto } from '../models/Vault';
-import { ContractService } from './contract-service';
+import db from '../database/schema.js';
+import { Vault, CreateVaultDto } from '../models/Vault.js';
+import { ContractService } from './contract-service.js';
 
 export class VaultService {
   static async createVault(dto: CreateVaultDto, creator: string): Promise<Vault> {
@@ -51,15 +51,17 @@ export class VaultService {
 
     const stmt = db.prepare(`
       INSERT INTO vaults (
-        id, vault_id, creator, total_deposit, spending_cap, approval_threshold,
+        id, vault_id, name, description, creator, total_deposit, spending_cap, approval_threshold,
         signers, signer_pubkeys, state, cycle_duration, unlock_amount, is_public,
         contract_address, contract_bytecode, balance, start_time
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       id,
       vaultId,
+      dto.name || null,
+      dto.description || null,
       creator,
       dto.totalDeposit,
       dto.spendingCap,
@@ -92,6 +94,8 @@ export class VaultService {
       return {
         id: row.id,
         vaultId: row.vault_id,
+        name: row.name || undefined,
+        description: row.description || undefined,
         creator: row.creator,
         totalDeposit: row.total_deposit,
         spendingCap: row.spending_cap,
@@ -120,6 +124,8 @@ export class VaultService {
     return {
       id: row.id,
       vaultId: row.vault_id,
+      name: row.name || undefined,
+      description: row.description || undefined,
       creator: row.creator,
       totalDeposit: row.total_deposit,
       spendingCap: row.spending_cap,
@@ -149,6 +155,8 @@ export class VaultService {
     return rows.map(row => ({
       id: row.id,
       vaultId: row.vault_id,
+      name: row.name || undefined,
+      description: row.description || undefined,
       creator: row.creator,
       totalDeposit: row.total_deposit,
       spendingCap: row.spending_cap,
@@ -174,6 +182,8 @@ export class VaultService {
     return rows.map(row => ({
       id: row.id,
       vaultId: row.vault_id,
+      name: row.name || undefined,
+      description: row.description || undefined,
       creator: row.creator,
       totalDeposit: row.total_deposit,
       spendingCap: row.spending_cap,

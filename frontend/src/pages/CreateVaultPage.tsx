@@ -79,6 +79,8 @@ export default function CreateVaultPage() {
 
       // Prepare vault data
       const vaultData = {
+        name: formData.name || undefined,
+        description: formData.description || undefined,
         totalDeposit: parseFloat(formData.depositAmount),
         spendingCap: formData.spendingCap ? parseFloat(formData.spendingCap) : 0,
         approvalThreshold: parseInt(formData.approvalThreshold),

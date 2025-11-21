@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { ContractService } from '../services/contract-service';
+import { ContractService } from '../services/contract-service.js';
 
 const router = Router();
 

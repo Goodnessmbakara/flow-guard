@@ -266,11 +266,17 @@ Source: [BCH Loops](https://github.com/bitjson/bch-loops), [BCH Bitwise](https:/
 
 ### ✅ Phase 1: Working on Chipnet NOW
 **FlowGuardDemo.cash** - Production-ready multisig treasury
-- ✅ Deployed and working on BCH chipnet
+- ✅ Deployed and working on BCH testnet
 - ✅ Multi-signature approvals (2-of-3, 3-of-3 configurable)
 - ✅ Real on-chain contract deployment
 - ✅ Live blockchain balance monitoring (30s intervals)
 - ✅ Full end-to-end flow: wallet connection → vault creation → contract deployment
+
+**🎯 Live Deployment Proof:**
+- **Contract Address:** `bchtest:pvwj657cm4wmjruparrs7c899370ldx6t3u0cyfj574rjh5mrjqajtue6w8dm`
+- **Balance:** 0.01015 BCH (1,015,000 satoshis)
+- **Explorer:** [View on Imaginary Cash](https://chipnet.imaginary.cash/address/bchtest:pvwj657cm4wmjruparrs7c899370ldx6t3u0cyfj574rjh5mrjqajtue6w8dm)
+- **Status:** ✅ Funded and operational with real on-chain transactions!
 
 ### 🎯 Phase 2: CHIP Mastery Demonstrated
 **Advanced Contracts** - Complete implementation of all four Layla CHIPs

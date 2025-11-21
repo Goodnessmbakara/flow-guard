@@ -120,6 +120,20 @@ try {
     db.exec(`ALTER TABLE vaults ADD COLUMN start_time DATETIME`);
     console.log('Added start_time column to vaults table');
   }
+
+  // Add name column for user-friendly vault names
+  const hasName = tableInfo.some(col => col.name === 'name');
+  if (!hasName) {
+    db.exec(`ALTER TABLE vaults ADD COLUMN name TEXT`);
+    console.log('Added name column to vaults table');
+  }
+
+  // Add description column for vault descriptions
+  const hasDescription = tableInfo.some(col => col.name === 'description');
+  if (!hasDescription) {
+    db.exec(`ALTER TABLE vaults ADD COLUMN description TEXT`);
+    console.log('Added description column to vaults table');
+  }
 } catch (error) {
   // Columns might already exist, log warning
   console.warn('Migration error:', error);

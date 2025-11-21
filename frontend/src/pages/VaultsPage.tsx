@@ -208,8 +208,11 @@ export default function VaultsPage() {
                       <div className="flex justify-between items-start mb-6">
                         <div className="flex-1">
                           <h3 className="text-2xl font-bold mb-2 text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
-                            {vault.vaultId || `Vault ${vault.id.slice(0, 8)}`}
+                            {vault.name || vault.vaultId || `Vault ${vault.id.slice(0, 8)}`}
                           </h3>
+                          {vault.description && (
+                            <p className="text-sm text-[var(--color-text-secondary)] mt-1">{vault.description}</p>
+                          )}
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="inline-flex items-center px-3 py-1 bg-[var(--color-accent)]/20 text-[var(--color-accent)] dark:bg-[var(--color-primary)]/20 dark:text-[var(--color-primary)] text-xs font-semibold rounded-full">
                               <span className="w-2 h-2 bg-[var(--color-accent)] dark:bg-[var(--color-primary)] rounded-full mr-2 animate-pulse" />

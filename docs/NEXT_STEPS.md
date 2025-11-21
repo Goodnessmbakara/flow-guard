@@ -2,9 +2,11 @@
 
 ## ✅ Current Status
 
-**Contract Address:** `bchtest:pvwj657cm4wmjruparrs7c899370ldx6t3u0cyfj574rjh5mrjqajtue6w8dm`  
-**Balance:** 0.01015 BCH (1,015,000 satoshis)  
+**Contract Address:** `bchtest:pvwj657cm4wmjruparrs7c899370ldx6t3u0cyfj574rjh5mrjqajtue6w8dm`
+**Network:** Bitcoin Cash Testnet (bchtest)
+**Balance:** 0.01015 BCH (1,015,000 satoshis)
 **Status:** ✅ Funded and ready to use!
+**Explorer:** https://chipnet.imaginary.cash/address/bchtest:pvwj657cm4wmjruparrs7c899370ldx6t3u0cyfj574rjh5mrjqajtue6w8dm
 
 ## 🎯 Immediate Next Steps
 

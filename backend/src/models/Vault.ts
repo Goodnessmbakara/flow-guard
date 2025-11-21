@@ -1,6 +1,8 @@
 export interface Vault {
   id: string;
   vaultId: string; // On-chain vault ID
+  name?: string; // User-friendly vault name
+  description?: string; // Vault description
   creator: string; // Creator address
   totalDeposit: number; // Total BCH deposited
   spendingCap: number; // Spending cap per period
@@ -20,6 +22,8 @@ export interface Vault {
 }
 
 export interface CreateVaultDto {
+  name?: string; // Optional user-friendly name
+  description?: string; // Optional description
   totalDeposit: number;
   spendingCap: number;
   approvalThreshold: number;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { VaultService } from '../services/vaultService';
-import { CreateVaultDto } from '../models/Vault';
+import { VaultService } from '../services/vaultService.js';
+import { CreateVaultDto } from '../models/Vault.js';
 
 const router = Router();
 

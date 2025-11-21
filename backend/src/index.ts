@@ -1,17 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import vaultsRouter from './api/vaults';
-import proposalsRouter from './api/proposals';
-import cyclesRouter from './api/cycles';
-import deploymentRouter from './api/deployment';
-import { startBlockchainMonitor, stopBlockchainMonitor } from './services/blockchain-monitor';
-import { startCycleUnlockScheduler, stopCycleUnlockScheduler } from './services/cycle-unlock-scheduler';
+import vaultsRouter from './api/vaults.js';
+import proposalsRouter from './api/proposals.js';
+import cyclesRouter from './api/cycles.js';
+import deploymentRouter from './api/deployment.js';
+import { startBlockchainMonitor, stopBlockchainMonitor } from './services/blockchain-monitor.js';
+import { startCycleUnlockScheduler, stopCycleUnlockScheduler } from './services/cycle-unlock-scheduler.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // CORS configuration - Allow all Vercel deployments
 app.use(cors({
@@ -40,7 +40,7 @@ app.get('/api', (req, res) => {
   res.json({ message: 'FlowGuard API', version: '0.1.0', network: 'chipnet' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 FlowGuard backend running on port ${PORT}`);
   console.log(`📡 Network: ${process.env.BCH_NETWORK || 'chipnet'}`);
 

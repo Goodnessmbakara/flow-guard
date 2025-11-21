@@ -3,9 +3,9 @@
  * Monitors all vault contracts and updates balances
  */
 
-import { ContractService } from './contract-service';
-import { VaultService } from './vaultService';
-import db from '../database/schema';
+import { ContractService } from './contract-service.js';
+import { VaultService } from './vaultService.js';
+import db from '../database/schema.js';
 
 export class BlockchainMonitor {
   private contractService: ContractService;

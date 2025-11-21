@@ -3,10 +3,10 @@
  * Monitors vaults and triggers cycle unlocks when conditions are met
  */
 
-import db from '../database/schema';
-import { VaultService } from './vaultService';
-import { StateService } from './state-service';
-import { ContractService } from './contract-service';
+import db from '../database/schema.js';
+import { VaultService } from './vaultService.js';
+import { StateService } from './state-service.js';
+import { ContractService } from './contract-service.js';
 
 export interface CycleUnlockResult {
   vaultId: string;
@@ -209,7 +209,9 @@ export class CycleUnlockScheduler {
       currentState,
       vaultStartTime,
       vault.cycleDuration,
-      vault.signerPubkeys
+      vault.signerPubkeys,
+      vault.approvalThreshold,
+      vault.spendingCap * 100000000
     );
 
     return result;
